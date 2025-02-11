@@ -1,30 +1,19 @@
 package main
 
 import (
+	"GitHubTask/internal"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-
-	"github.com/joho/godotenv"
 )
 
-func fetchRepos() []byte {
+func fetchRepos(token string) []byte {
 	url := "https://api.github.com/search/repositories?q=language:Go&sort=stars&order=desc"
 	// создаем свой клиент, через него мы будем вызывать req(запрос), через метод client.Do
 	// здесь мы не настраиваем свой кастомный клиент, его можно не создавать, а обращаться через http.DefaultClient.Do(req)
 	client := &http.Client{}
-
-	// Загружаем токен из переменной окружения
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Ошибка загрузки .env файла")
-	}
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		fmt.Println("Ошибка: переменная окружения GITHUB_TOKEN не найдена")
-		return nil
-	}
 
 	// создаем тело запроса, третьим аргументом передается body (тело запроса), данные которые мы хотим удалить или запостить через методы POST, DELETE
 	req, reqErr := http.NewRequest(http.MethodGet, url, nil)
@@ -53,6 +42,20 @@ func fetchRepos() []byte {
 	return result
 }
 
+func PrettyPrintJSON(body []byte) (string, error) {
+	var prettyJSON bytes.Buffer
+	err := json.Indent(&prettyJSON, body, "-", "\t")
+	if err != nil {
+		return "", fmt.Errorf("ошибка форматирования PrettyPrintJSON")
+	}
+
+	return prettyJSON.String(), nil
+}
+
 func main() {
-	fmt.Println(string(fetchRepos()))
+	token, tokenErr := internal.GetGithubToken()
+	if tokenErr != nil {
+		fmt.Println("ошибка получения токена в main", tokenErr)
+	}
+	fmt.Println(PrettyPrintJSON(fetchRepos(token)))
 }
