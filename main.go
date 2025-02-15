@@ -12,15 +12,6 @@ import (
 	"sync"
 )
 
-//var client = &http.Client{}
-
-// setHeaders добавляет стандартные заголовки в HTTP-запрос
-func setHeaders(req *http.Request, token string) {
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-}
-
 func fetchRepos(token string) (models.RepositoryList, error) {
 	url := "https://api.github.com/search/repositories?q=language:Go&sort=stars&order=desc"
 
@@ -30,7 +21,7 @@ func fetchRepos(token string) (models.RepositoryList, error) {
 	}
 
 	// Устанавливаем заголовки через общую функцию
-	setHeaders(req, token)
+	api.SetHeaders(req)
 
 	resp, respErr := api.GithubClient.Do(req)
 	if respErr != nil {
@@ -52,24 +43,34 @@ func fetchRepos(token string) (models.RepositoryList, error) {
 	return response, nil
 }
 
-func fetchRepoById(id int, token string) error {
+func fetchRepoById(id int) (models.Repository, error) {
 	url := "https://api.github.com/repositories/" + strconv.Itoa(id)
 
 	req, reqErr := http.NewRequest(http.MethodGet, url, nil)
 	if reqErr != nil {
-		return fmt.Errorf("ошибка при fetchRepoById: %w", reqErr)
+		return models.Repository{}, fmt.Errorf("ошибка при fetchRepoById: %w", reqErr)
 	}
 
-	// Используем общую функцию для установки заголовков
-	setHeaders(req, token)
+	api.SetHeaders(req)
 
 	resp, respErr := api.GithubClient.Do(req)
 	if respErr != nil {
-		return fmt.Errorf("ошибка при выполнении запроса fetchRepoById: %w", respErr)
+		return models.Repository{}, fmt.Errorf("ошибка при выполнении запроса fetchRepoById: %w", respErr)
 	}
 	defer resp.Body.Close()
 
-	return nil
+	result, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return models.Repository{}, fmt.Errorf("ошибка при выполнении чтения body в fetchRepoById: %w", readErr)
+	}
+
+	var response models.Repository
+	unmarhsalErr := json.Unmarshal(result, &response)
+	if unmarhsalErr != nil {
+		return models.Repository{}, fmt.Errorf("ошибка при десериализации JSON: %w", unmarhsalErr)
+	}
+
+	return response, nil
 }
 
 func main() {
@@ -85,24 +86,23 @@ func main() {
 		return
 	}
 
+	//repIdList.PrintItems()
+
 	maxRequests := 10
-	semaphore := make(chan struct{}, maxRequests)
+	semaphore := make(chan models.Repository, maxRequests)
 	wg := sync.WaitGroup{}
 
 	for i := 0; i < len(repIdList.Items); i++ {
 		wg.Add(1)
-		semaphore <- struct{}{} // Блокируем слот
+		go func(index int) {
 
-		go func(repoId int) {
-			defer wg.Done()
-			defer func() { <-semaphore }() // Освобождаем слот
-
-			err := fetchRepoById(repoId, token)
+			repository, err := fetchRepoById(repIdList.Items[index].ID)
 			if err != nil {
-				fmt.Println("Ошибка при вызове fetchRepoById:", err)
+				fmt.Println("ошибка при выполнении запроса fetchRepoById внутри семафора в main", err)
+			} else {
+				semaphore <- repository
 			}
-		}(repIdList.Items[i].ID)
+		}(i)
 	}
 
-	wg.Wait()
 }

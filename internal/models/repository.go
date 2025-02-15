@@ -3,7 +3,7 @@ package models
 import "fmt"
 
 type RepositoryList struct {
-	Items []RepositoryID `json:"items"`
+	Items []Repository `json:"items"`
 }
 
 func (r *RepositoryList) PrintItems() {
@@ -12,6 +12,10 @@ func (r *RepositoryList) PrintItems() {
 	}
 }
 
-type RepositoryID struct {
-	ID int `json:"id"`
+type Repository struct {
+	ID              int    `json:"id"`
+	Name            string `json:"name"`
+	StargazersCount int    `json:"stargazers_count"`
+	ForksCount      int    `json:"forks_count"`
+	OpenIssuesCount int    `json:"open_issues_count"`
 }
