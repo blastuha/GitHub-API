@@ -1,7 +1,6 @@
 package main
 
 import (
-	"GitHubTask/internal"
 	"GitHubTask/internal/api"
 	"GitHubTask/internal/models"
 	"encoding/json"
@@ -12,7 +11,7 @@ import (
 	"sync"
 )
 
-func fetchRepos(token string) (models.RepositoryList, error) {
+func fetchRepos() (models.RepositoryList, error) {
 	url := "https://api.github.com/search/repositories?q=language:Go&sort=stars&order=desc"
 
 	req, reqErr := http.NewRequest(http.MethodGet, url, nil)
@@ -74,13 +73,8 @@ func fetchRepoById(id int) (models.Repository, error) {
 }
 
 func main() {
-	token, tokenErr := internal.GetGithubToken()
-	if tokenErr != nil {
-		fmt.Println("Ошибка получения токена в main:", tokenErr)
-		return
-	}
 
-	repIdList, resErr := fetchRepos(token)
+	repIdList, resErr := fetchRepos()
 	if resErr != nil {
 		fmt.Println("Ошибка получения ответа от запроса fetchRepos:", resErr)
 		return
