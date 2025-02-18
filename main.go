@@ -11,8 +11,11 @@ import (
 	"sync"
 )
 
+// todo: добавить paging и адаптировать код под него
+// todo: сделать todo из файла api.go
+
 func fetchRepos() (models.RepositoryList, error) {
-	url := "https://api.github.com/search/repositories?q=language:Go&sort=stars&order=desc"
+	url := "https://api.github.com/search/repositories?q=language:Go&sort=stars&order=desc&per_page=100&page=1"
 
 	req, reqErr := http.NewRequest(http.MethodGet, url, nil)
 	if reqErr != nil {
@@ -73,6 +76,9 @@ func fetchRepoById(id int) (models.Repository, error) {
 }
 
 func main() {
+	var totalForks int      //Общее число форков
+	var totalStars int      //Суммарное количество звезд
+	var totalOpenIssues int //Всего открытых issues
 
 	repIdList, resErr := fetchRepos()
 	if resErr != nil {
@@ -80,23 +86,48 @@ func main() {
 		return
 	}
 
-	//repIdList.PrintItems()
+	fmt.Println("repIdList", len(repIdList.Items))
+
+	var repositories []models.Repository
 
 	maxRequests := 10
-	semaphore := make(chan models.Repository, maxRequests)
+	semaphore := make(chan struct{}, maxRequests)
 	wg := sync.WaitGroup{}
+	mutex := sync.Mutex{}
 
 	for i := 0; i < len(repIdList.Items); i++ {
 		wg.Add(1)
 		go func(index int) {
+			defer wg.Done()
+			// заполняем слот семафора
+			semaphore <- struct{}{}
+			// в конце освобождаем слот семафора
+			defer func() {
+				<-semaphore
+			}()
 
 			repository, err := fetchRepoById(repIdList.Items[index].ID)
 			if err != nil {
 				fmt.Println("ошибка при выполнении запроса fetchRepoById внутри семафора в main", err)
-			} else {
-				semaphore <- repository
 			}
+
+			// записываем в слайс репозиториев репозиторий
+			mutex.Lock()
+			repositories = append(repositories, repository)
+			mutex.Unlock()
 		}(i)
 	}
+
+	wg.Wait()
+	close(semaphore)
+
+	for _, repo := range repositories {
+		totalForks += repo.ForksCount
+		totalStars += repo.StargazersCount
+		totalOpenIssues += repo.OpenIssuesCount
+	}
+
+	fmt.Printf("Forks %d, Stars %d, OpenIssues %d \n", totalForks, totalStars, totalOpenIssues)
+	fmt.Println("repositories", repositories)
 
 }
