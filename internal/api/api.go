@@ -1,7 +1,6 @@
 package api
 
 import (
-	"GitHubTask/internal"
 	"fmt"
 	"net/http"
 )
@@ -15,7 +14,7 @@ var GithubClient = &http.Client{
 
 // SetHeaders добавляет стандартные заголовки в HTTP-запрос
 func SetHeaders(req *http.Request) {
-	token, tokenErr := internal.GetGithubToken()
+	token, tokenErr := GetGithubToken()
 	if tokenErr != nil {
 		fmt.Println("Ошибка получения токена в main:", tokenErr)
 		return

@@ -3,6 +3,7 @@ package main
 import (
 	"GitHubTask/internal/api"
 	"GitHubTask/internal/models"
+	"GitHubTask/internal/utils"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,12 +51,14 @@ func fetchRepoById(id int) (models.Repository, error) {
 
 	req, reqErr := http.NewRequest(http.MethodGet, url, nil)
 	if reqErr != nil {
-		return models.Repository{}, fmt.Errorf("ошибка при fetchRepoById: %w", reqErr)
+		return models.Repository{}, fmt.Errorf("ошибка при создании NewRequest в fetchRepoById: %w", reqErr)
 	}
 
 	api.SetHeaders(req)
 
-	resp, respErr := api.GithubClient.Do(req)
+	resp, respErr := utils.DoWithRetry(req, 5)
+
+	//resp, respErr := api.GithubClient.Do(req)
 	if respErr != nil {
 		return models.Repository{}, fmt.Errorf("ошибка при выполнении запроса fetchRepoById: %w", respErr)
 	}
@@ -86,7 +89,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("repIdList", len(repIdList.Items))
+	fmt.Println("repIdList.Items", len(repIdList.Items))
 
 	var repositories []models.Repository
 
@@ -128,6 +131,6 @@ func main() {
 	}
 
 	fmt.Printf("Forks %d, Stars %d, OpenIssues %d \n", totalForks, totalStars, totalOpenIssues)
-	fmt.Println("repositories", repositories)
+	//fmt.Println("repositories", repositories)
 
 }
